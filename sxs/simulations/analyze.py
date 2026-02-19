@@ -105,6 +105,7 @@ def analyze_simulation(
     analyze_levs=True,
     analyze_extrapolation=True,
     analyze_psi4=True,
+    analyze_memory=True,
     ASDs_and_total_masses=None,
     path_to_analysis_cache=None,
     nprocs=None,
@@ -204,6 +205,18 @@ def analyze_simulation(
 
         errors[f"(-h.ddot, psi4)"] = L2_norm
 
+    if analyze_memory:
+            vrsn = sim.versions
+            sim_mem = load(f"{sim_name}" + vrsn[-1])
+            sim_no_mem = load(f"{sim_name}" + vrsn[-3])
+
+            w_mem = sim_mem.h
+            w_no_mem = sim_no_mem.h
+
+            time_intersection = (max(sim_mem.metadata.relaxation_time, sim_no_mem.metadata.relaxation_time), min(w_mem.t[-1], w_no_mem.t[-1]))
+
+            errors[f"({sim_name})"] = compute_error_summary(w_mem, w_no_mem, *time_intersection, ASDs_and_total_masses=ASDs_and_total_masses)
+
     if path_to_analysis_cache is not None:
         if not os.path.exists(path_to_analysis_cache):
             os.makedirs(path_to_analysis_cache)
@@ -232,6 +245,7 @@ def analyze_simulations(
     analyze_levs=True,
     analyze_extrapolation=True,
     analyze_psi4=True,
+    analyze_memory=True,
     ASDs_and_total_masses=None,
     path_to_analysis_cache=None,
     nprocs=None,
@@ -288,7 +302,7 @@ def analyze_simulations(
             results = pool.starmap(
                 analyze_simulation,
                 [
-                    (sim_name, analyze_levs, analyze_extrapolation, analyze_psi4, ASDs_and_total_masses, path_to_analysis_cache, -1)
+                    (sim_name, analyze_levs, analyze_extrapolation, analyze_psi4, analyze_memory, ASDs_and_total_masses, path_to_analysis_cache, -1)
                     for sim_name in sim_names
                 ],
             )
@@ -297,7 +311,7 @@ def analyze_simulations(
     else:
         for sim_name in sim_names:
             errors[sim_name] = analyze_simulation(
-                sim_name, analyze_levs, analyze_extrapolation, analyze_psi4, ASDs_and_total_masses, path_to_analysis_cache, -1
+                sim_name, analyze_levs, analyze_extrapolation, analyze_psi4, analyze_memory, ASDs_and_total_masses, path_to_analysis_cache, -1
             )
 
     return errors
