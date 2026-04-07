@@ -107,6 +107,7 @@ def analyze_simulation(
     analyze_psi4=True,
     analyze_memory=True,
     ASDs_and_total_masses=None,
+    modes=None,
     path_to_analysis_cache=None,
     nprocs=None,
 ):
@@ -167,7 +168,7 @@ def analyze_simulation(
                 w_low_lev_prime, transformation, L2_norm, t1, t2 = align_simulations(
                     sim_low_lev, sim_high_lev, alignment_method="4d", nprocs=nprocs
                 )
-                errors[f"(Lev{low_lev}, Lev{high_lev}) 4d"] = compute_error_summary(w_low_lev_prime, w_high_lev, t1, t2, ASDs_and_total_masses=ASDs_and_total_masses)
+                errors[f"(Lev{low_lev}, Lev{high_lev}) 4d"] = compute_error_summary(w_low_lev_prime, w_high_lev, t1, t2, ASDs_and_total_masses=ASDs_and_total_masses, modes=modes)
                 errors[f"(Lev{low_lev}, Lev{high_lev}) 4d transformation"] = transformation
 
             w_low_lev_prime, transformation, _, t1, t2 = align_simulations(
@@ -215,7 +216,7 @@ def analyze_simulation(
 
             time_intersection = (max(sim_mem.metadata.relaxation_time, sim_no_mem.metadata.relaxation_time), min(w_mem.t[-1], w_no_mem.t[-1]))
 
-            errors[f"({sim_name})"] = compute_error_summary(w_mem, w_no_mem, *time_intersection, ASDs_and_total_masses=ASDs_and_total_masses)
+            errors[f"({sim_name})"] = compute_error_summary(w_mem, w_no_mem, *time_intersection, ASDs_and_total_masses=ASDs_and_total_masses, modes=modes)
 
     if path_to_analysis_cache is not None:
         if not os.path.exists(path_to_analysis_cache):
@@ -247,6 +248,7 @@ def analyze_simulations(
     analyze_psi4=True,
     analyze_memory=True,
     ASDs_and_total_masses=None,
+    modes=None,
     path_to_analysis_cache=None,
     nprocs=None,
 ):
@@ -302,7 +304,7 @@ def analyze_simulations(
             results = pool.starmap(
                 analyze_simulation,
                 [
-                    (sim_name, analyze_levs, analyze_extrapolation, analyze_psi4, analyze_memory, ASDs_and_total_masses, path_to_analysis_cache, -1)
+                    (sim_name, analyze_levs, analyze_extrapolation, analyze_psi4, analyze_memory, ASDs_and_total_masses, modes,path_to_analysis_cache, -1)
                     for sim_name in sim_names
                 ],
             )
@@ -311,7 +313,7 @@ def analyze_simulations(
     else:
         for sim_name in sim_names:
             errors[sim_name] = analyze_simulation(
-                sim_name, analyze_levs, analyze_extrapolation, analyze_psi4, analyze_memory, ASDs_and_total_masses, path_to_analysis_cache, -1
+                sim_name, analyze_levs, analyze_extrapolation, analyze_psi4, analyze_memory, ASDs_and_total_masses, modes, path_to_analysis_cache, -1
             )
 
     return errors
