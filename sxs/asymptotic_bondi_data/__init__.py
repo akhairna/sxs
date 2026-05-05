@@ -1,7 +1,25 @@
 import numpy as np
-from spherical import LM_total_size
-from .. import WaveformModes
+import spherical as sf
 from .. import Inertial
+from .. import WaveformModes
+
+def multiply_waveform_modes(self, modes1, modes2):
+    modes12_data, modes12_ellmin, modes12_ellmax, modes12_spin = sf.multiply(
+        modes1,
+        modes1.ell_min,
+        modes1.ell_max,
+        modes1.spin_weight,
+        modes2,
+        modes2.ell_min,
+        modes2.ell_max,
+        modes2.spin_weight,
+        ellmin_fg=0,
+        ellmax_fg=8
+    )
+
+    modes12 = WaveformModes(modes12_data, time=self.time, time_axis=0, ell_min = modes12_ellmin, ell_max=modes12_ellmax, modes_axis=1, spin_weight = modes12_spin, frame=self.frame)
+
+    return modes12
 
 class AsymptoticBondiData:
     """Class to store asymptotic Bondi data
@@ -53,24 +71,14 @@ class AsymptoticBondiData:
             choice, to ensure that the user is aware of the situation.)
 
         """
-        # if np.ndim(time) == 0:
-        #     # Assume this is just the size of the time array; construct an empty array
-        #     time = np.empty((time,), dtype=float)
-        # elif np.ndim(time) > 1:
-        #     raise ValueError(f"Input `time` parameter must be an integer or a 1-d array; it has shape {time.shape}")
-        # if time.dtype != float:
-        #     raise ValueError(f"Input `time` parameter must have dtype float; it has dtype {time.dtype}")
 
         self.frame = np.array([])
-        # self.ell_max = ell_max
         self.frameType = frameType
-        #Do I need to add multiplication truncator? Unclear about multiplication.
-        # self._time = None #Confirm whether reference is better or not?
-        self._psi0  = psi0
-        self._psi1  = psi1
-        self._psi2  = psi2
-        self._psi3  = psi3
-        self._psi4  = psi4
+        self._psi0 = psi0
+        self._psi1 = psi1
+        self._psi2 = psi2
+        self._psi3 = psi3
+        self._psi4 = psi4
         self._h = strain_modes
 
         self.validate_fields()
@@ -85,22 +93,6 @@ class AsymptoticBondiData:
     @property
     def n_times(self):
         return self.time.size
-
-    # @property
-    # def n_modes(self):
-    #     return self._raw_data.shape[-1]
-
-    # @property
-    # def ell_min(self):
-    #     return self._psi2.ell_min
-
-    # @property
-    # def ell_max(self):
-    #     return self._psi2.ell_max
-
-    # @property
-    # def LM(self):
-    #     return self.psi2.LM
 
     @property
     def h(self):
@@ -120,12 +112,12 @@ class AsymptoticBondiData:
 
     @property
     def sigma(self):
-        return 0.5 * self._h.bar
+        return 0.5 * self.h.bar
 
     @property
     def psi4(self):
         if self._psi4 is None:
-            self._psi4 = - self.sigma.bar.ddot
+            self._psi4 = -self.sigma.bar.ddot
         return self._psi4
 
     @psi4.setter
@@ -140,7 +132,7 @@ class AsymptoticBondiData:
     @property
     def psi3(self):
         if self._psi3 is None:
-            self._psi3 = - self.sigma.bar.dot.eth
+            self._psi3 = -self.sigma.bar.dot.eth
         return self._psi3
 
     @psi3.setter
@@ -186,10 +178,7 @@ class AsymptoticBondiData:
 
     @property
     def psi0(self):
-        if self._psi0 is None:
-            raise AttributeError("psi0 data has not been provided.")
-        else:
-            return self._psi0
+        return self._psi0
 
     @psi0.setter
     def psi0(self, psi0prm):
@@ -207,21 +196,17 @@ class AsymptoticBondiData:
 
         for i, (name, present) in enumerate(zip(fields, fields_present)):
             if present:
-                missing = [
-                    f for f, p in zip(fields[i+1:], fields_present[i+1:]) if not p
-                    ]
+                missing = [f for f, p in zip(fields[i + 1 :], fields_present[i + 1 :]) if not p]
                 if missing:
-                    raise ValueError(
-                        f"{name} is present but higher-order Weyl scalars are missing: {missing}"
-                        )
+                    raise ValueError(f"{name} is present but higher-order Weyl scalars are missing: {missing}")
 
     def validate_times(self):
 
         WM_ref = self._h
 
         for field in ("psi0", "psi1", "psi2", "psi3", "psi4"):
-            if hasattr(self, f"has_{field}"):
-                if not (WM_ref.t == getattr(self,field).t).all():
+            if getattr(self, f"has_{field}"):
+                if not (WM_ref.t == getattr(self, field).t).all():
                     raise ValueError(
                         f"All fields i.e. Strain and Weyl scalars must share the same set of times."
                         f"The data for {field} has a different set of times."
@@ -232,28 +217,43 @@ class AsymptoticBondiData:
     def copy(self):
         import copy
 
-        new_abd = type(self)(self.t)
+        new_abd = type(self)(
+            strain_modes=self.h,
+            psi0=self.psi0,
+            psi1=self.psi1,
+            psi2=self.psi2,
+            psi3=self.psi3,
+            psi4=self.psi4,
+            frameType=self.frameType,
+        )
         state = copy.deepcopy(self.__dict__)
         new_abd.__dict__.update(state)
+
         return new_abd
 
     def interpolate(self, new_times):
         new_abd = type(self)(
-            time=new_times,
-            frameType=self.frameType
-            )
+            strain_modes=self.h,
+            psi0=self.psi0,
+            psi1=self.psi1,
+            psi2=self.psi2,
+            psi3=self.psi3,
+            psi4=self.psi4,
+            frameType=self.frameType,
+        )
         # interpolate waveform data
-        for field in ("psi0", "psi1", "psi2", "psi3", "psi4", "sigma"):
+        for field in ("psi0", "psi1", "psi2", "psi3", "psi4", "h"):
             if getattr(self, f"has_{field}"):
                 setattr(new_abd, field, getattr(self, field).interpolate(new_times))
 
         # interpolate frame data if necessary
         if self.frame.shape[0] == self.n_times:
             import quaternion
+
             new_abd.frame = quaternion.squad(self.frame, self.t, new_times)
         return new_abd
 
-    #Slicing
+    # Slicing
     def __getitem__(self, key):
         """
         Extract time slices of the asymptotic Bondi data efficiently.
@@ -265,11 +265,16 @@ class AsymptoticBondiData:
             raise ValueError(f"Invalid key `{key}` of type `{type(key)}`.")
 
         new_abd = type(self)(
-            time=self.time[key],
-            frameType=self.frameType
-            )
+            strain_modes=self.h,
+            psi0=self.psi0,
+            psi1=self.psi1,
+            psi2=self.psi2,
+            psi3=self.psi3,
+            psi4=self.psi4,
+            frameType=self.frameType,
+        )
 
-        for field in ("psi0", "psi1", "psi2", "psi3", "psi4", "sigma"):
+        for field in ("psi0", "psi1", "psi2", "psi3", "psi4", "h"):
             if getattr(self, f"has_{field}"):
                 setattr(new_abd, field, getattr(self, field)[key])
 
@@ -279,30 +284,30 @@ class AsymptoticBondiData:
 
     # from .from_initial_values import from_initial_values
 
-    # from .constraints import (
-    #     bondi_constraints,
-    #     bondi_violations,
-    #     bondi_violation_norms,
-    #     bianchi_0,
-    #     bianchi_1,
-    #     bianchi_2,
-    #     constraint_3,
-    #     constraint_4,
-    #     constraint_mass_aspect,
-    # )
+    from .constraints import (
+        bondi_constraints,
+        bondi_violations,
+        bondi_violation_norms,
+        bianchi_0,
+        bianchi_1,
+        bianchi_2,
+        constraint_3,
+        constraint_4,
+        constraint_mass_aspect,
+    )
 
-    # from .transformations import transform
-    # from .bms_charges import (
-    #     mass_aspect,
-    #     bondi_rest_mass,
-    #     bondi_four_momentum,
-    #     bondi_angular_momentum,
-    #     CWWY_angular_momentum,
-    #     bondi_dimensionless_spin,
-    #     bondi_boost_charge,
-    #     bondi_CoM_charge,
-    #     supermomentum,
-    # )
+    from .transformations import transform
+    from .bms_charges import (
+        mass_aspect,
+        bondi_rest_mass,
+        bondi_four_momentum,
+        bondi_angular_momentum,
+        CWWY_angular_momentum,
+        bondi_dimensionless_spin,
+        bondi_boost_charge,
+        bondi_CoM_charge,
+        supermomentum,
+    )
 
     # from .map_to_superrest_frame import map_to_superrest_frame
     # from .map_to_abd_frame import map_to_abd_frame
