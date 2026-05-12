@@ -101,7 +101,7 @@ def bianchi_0(self, lhs=True, rhs=True):
         ψ̇₀ = ðψ₁ + 3 σ ψ₂
 
     Parameters
-    ----------
+    ==========
     lhs: bool [defaults to True]
         If True, return the left-hand side of the equation above
     rhs: bool [defaults to True]
@@ -114,7 +114,7 @@ def bianchi_0(self, lhs=True, rhs=True):
     if lhs:
         lhs_value = self.psi0.dot
     if rhs:
-        rhs_value = self.psi1.eth_GHP + 3 * self.   (self.sigma, self.psi2)
+        rhs_value = self.psi1.eth_GHP + 3 * self.sigma * self.psi2
     if lhs and rhs:
         return (lhs_value, rhs_value)
     elif lhs:
