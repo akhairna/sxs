@@ -89,7 +89,7 @@ def bondi_violation_norms(self):
 
     """
     violations = self.bondi_violations
-    return [v.norm() for v in violations]
+    return [v.norm for v in violations]
 
 
 def bianchi_0(self, lhs=True, rhs=True):
