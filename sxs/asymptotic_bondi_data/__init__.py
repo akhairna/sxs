@@ -3,24 +3,6 @@ import spherical as sf
 from .. import Inertial
 from .. import WaveformModes
 
-def multiply_waveform_modes(self, modes1, modes2):
-    modes12_data, modes12_ellmin, modes12_ellmax, modes12_spin = sf.multiply(
-        modes1,
-        modes1.ell_min,
-        modes1.ell_max,
-        modes1.spin_weight,
-        modes2,
-        modes2.ell_min,
-        modes2.ell_max,
-        modes2.spin_weight,
-        ellmin_fg=0,
-        ellmax_fg=8
-    )
-
-    modes12 = WaveformModes(modes12_data, time=self.time, time_axis=0, ell_min = modes12_ellmin, ell_max=modes12_ellmax, modes_axis=1, spin_weight = modes12_spin, frame=self.frame)
-
-    return modes12
-
 class AsymptoticBondiData:
     """Class to store asymptotic Bondi data
 
@@ -51,12 +33,12 @@ class AsymptoticBondiData:
 
     """
 
-    def __init__(self, strain_modes=None, psi0=None, psi1=None, psi2=None, psi3=None, psi4=None, frameType=Inertial):
+    def __init__(self, strain=None, psi0=None, psi1=None, psi2=None, psi3=None, psi4=None, frameType=Inertial):
         """Create new storage for asymptotic Bondi data
 
         Parameters
         ==========
-        time: int or array_like
+        strain: int or array_like
             Times at which the data will be stored.  If this is an int, an empty array of that size
             will be created.  Otherwise, this must be a 1-dimensional array of floats.
         ell_max: int
@@ -79,7 +61,7 @@ class AsymptoticBondiData:
         self._psi2 = psi2
         self._psi3 = psi3
         self._psi4 = psi4
-        self._h = strain_modes
+        self._strain = strain
 
         self.validate_fields()
         self.validate_times()
@@ -95,20 +77,22 @@ class AsymptoticBondiData:
         return self.time.size
 
     @property
-    def h(self):
-        if self._h is None:
+    def strain(self):
+        if self._strain is None:
             raise AttributeError("Strain data has not been provided.")
         else:
-            return self._h
+            return self._strain
 
-    @h.setter
-    def h(self, hprm):
-        self._h = hprm
-        return self.h
+    @strain.setter
+    def strain(self, strain_prm):
+        self._strain = strain_prm
+        return self.strain
+
+    h = strain
 
     @property
-    def has_h(self):
-        return self.h is not None
+    def has_strain(self):
+        return self.strain is not None
 
     @property
     def sigma(self):
@@ -202,13 +186,13 @@ class AsymptoticBondiData:
 
     def validate_times(self):
 
-        WM_ref = self._h
+        WM_ref = self._strain
 
         for field in ("psi0", "psi1", "psi2", "psi3", "psi4"):
             if getattr(self, f"has_{field}"):
                 if not (WM_ref.t == getattr(self, field).t).all():
                     raise ValueError(
-                        f"All fields i.e. Strain and Weyl scalars must share the same set of times."
+                        f"All fields i.e. Strain and Weyl scalar components must share the same set of times."
                         f"The data for {field} has a different set of times."
                     )
 
@@ -218,7 +202,7 @@ class AsymptoticBondiData:
         import copy
 
         new_abd = type(self)(
-            strain_modes=self.h,
+            strain=self.strain,
             psi0=self.psi0,
             psi1=self.psi1,
             psi2=self.psi2,
@@ -233,7 +217,7 @@ class AsymptoticBondiData:
 
     def interpolate(self, new_times):
         new_abd = type(self)(
-            strain_modes=self.h,
+            strain=self.strain,
             psi0=self.psi0,
             psi1=self.psi1,
             psi2=self.psi2,
@@ -242,15 +226,15 @@ class AsymptoticBondiData:
             frameType=self.frameType,
         )
         # interpolate waveform data
-        for field in ("psi0", "psi1", "psi2", "psi3", "psi4", "h"):
+        for field in ("psi0", "psi1", "psi2", "psi3", "psi4", "strain"):
             if getattr(self, f"has_{field}"):
                 setattr(new_abd, field, getattr(self, field).interpolate(new_times))
 
         # interpolate frame data if necessary
         if self.frame.shape[0] == self.n_times:
             import quaternion
-
             new_abd.frame = quaternion.squad(self.frame, self.t, new_times)
+
         return new_abd
 
     # Slicing
@@ -265,7 +249,7 @@ class AsymptoticBondiData:
             raise ValueError(f"Invalid key `{key}` of type `{type(key)}`.")
 
         new_abd = type(self)(
-            strain_modes=self.h,
+            strain=self.h,
             psi0=self.psi0,
             psi1=self.psi1,
             psi2=self.psi2,
@@ -274,15 +258,13 @@ class AsymptoticBondiData:
             frameType=self.frameType,
         )
 
-        for field in ("psi0", "psi1", "psi2", "psi3", "psi4", "h"):
+        for field in ("psi0", "psi1", "psi2", "psi3", "psi4", "strain"):
             if getattr(self, f"has_{field}"):
                 setattr(new_abd, field, getattr(self, field)[key])
 
         if self.frame.shape[0] == self.n_times:
             new_abd.frame = self.frame[key]
         return new_abd
-
-    # from .from_initial_values import from_initial_values
 
     from .constraints import (
         bondi_constraints,
@@ -296,7 +278,9 @@ class AsymptoticBondiData:
         constraint_mass_aspect,
     )
 
+    # from .from_initial_values import from_initial_values
     from .transformations import transform
+
     from .bms_charges import (
         mass_aspect,
         bondi_rest_mass,
