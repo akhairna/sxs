@@ -5,6 +5,8 @@ from .. import Metadata
 from ..utilities import download_file, sxs_directory, sxs_path_to_system_path
 from ..utilities.sxs_identifiers import sep_regex
 import re
+from sxscatalog.utilities import consolidate_xyz_vectors
+from sxscatalog.simulations.rit_maya_simulations import _add_parameters_to_RIT
 
 rit_id_regex = r"(?P<rit_identifier>RIT:BBH:[0-9]+)"
 res_regex = r"(?P<res>n[0-9]+)"
@@ -220,6 +222,11 @@ class RITSimulation_v5(RITSimulation_v4):
 
         metadata = Metadata.from_txt_file(metadata_truepath, cache_json=False)
         metadata.pop("metadata_path", None)
+
+        # This consolidates the xyz components to a vector array when fields are
+        # loaded from metadata.txt file.
+        metadata = consolidate_xyz_vectors(metadata)
+        metadata = _add_parameters_to_RIT(metadata)
 
         return metadata
 
