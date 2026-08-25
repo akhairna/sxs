@@ -3,7 +3,8 @@
     "packages": {
         "PostNewtonian": {
             "uuid": "377afc40-5642-4616-8613-b7ebca523866",
-            "version": "0.10.9"
+            "dev": true,
+            "path":"/home/aniketkhairnar/Desktop/Numerical/Cloned_repos/PostNewtonian.jl"
         }
     }
 }
