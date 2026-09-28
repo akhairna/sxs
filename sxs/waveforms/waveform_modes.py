@@ -575,6 +575,8 @@ class WaveformModes(WaveformMixin, TimeSeries):
         eth, ethbar
     )
 
+    from spherical.modes.utilities import truncate_ell
+
     @property
     def eth_GHP(self):
         """Spin-raising derivative operator defined by Geroch-Held-Penrose
